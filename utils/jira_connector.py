@@ -80,13 +80,14 @@ class JiraConnection:
             issue: The Jira issue object (must have changelog expanded).
 
         Returns:
-            tuple: (first_entered_testing, last_finished_testing, times_entered_testing, total_testing_time_hours, current_status, ticket_title)
+            tuple: (first_entered_testing, last_finished_testing, times_entered_testing, total_testing_time_hours, current_status, ticket_title, created_date)
                 - first_entered_testing (datetime | None): When issue first entered TESTING
                 - last_finished_testing (datetime | None): When issue last left TESTING
                 - times_entered_testing (int): Number of times issue entered TESTING
                 - total_testing_time_hours (float): Total time in TESTING in hours (-1 if still in TESTING)
                 - current_status (str): Current status of the issue
                 - ticket_title (str): Issue summary/ticket_title
+                - ticket_created_date (str): When the ticket was created
 
         """
         first_entered_testing = None
@@ -100,6 +101,9 @@ class JiraConnection:
         # We need to check for this edge case by looking at the first status transition
         current_status = str(issue.fields.status.name)
         ticket_title = str(issue.fields.summary)
+        # Parse created date from Jira format
+        ticket_created_str = issue.fields.created[:-2] + ":" + issue.fields.created[-2:]
+        ticket_created_date = datetime.fromisoformat(ticket_created_str).strftime("%Y-%m-%d %H:%M:%S")
 
         for history in issue.changelog.histories:
             # Jira format: '2026-03-06T10:05:07.020+0000' -> need '+00:00'
@@ -132,10 +136,11 @@ class JiraConnection:
             total_testing_time_hours = -1
 
         return (
-            first_entered_testing,
-            last_finished_testing,
+            first_entered_testing.strftime("%Y-%m-%d %H:%M:%S") if first_entered_testing else None,
+            last_finished_testing.strftime("%Y-%m-%d %H:%M:%S") if last_finished_testing else None,
             times_entered_testing,
             total_testing_time_hours,
             current_status,
             ticket_title,
+            ticket_created_date,
         )
