@@ -21,10 +21,11 @@ class JiraConnection:
         self.jira = JIRA(server="https://jira.dexcom.com", token_auth=token)
 
     @staticmethod
-    def build_query(start_date: date, end_date: date, allowed_statuses: list) -> str:
+    def build_query(project: str, start_date: date, end_date: date, allowed_statuses: list) -> str:
         """Build a JQL query string based on the provided parameters.
 
         Args:
+            project (str): The Jira project key to search within.
             start_date (date): The start date for the search.
             end_date (date): The end date for the search.
             allowed_statuses (list): List of allowed issue statuses to filter the search.
@@ -34,7 +35,7 @@ class JiraConnection:
 
         """
         allowed_statuses_sanitized = [status.replace(" ", r"\ ") for status in allowed_statuses]
-        return f'project = COMPAT AND created >= "{start_date.strftime("%Y-%m-%d")}" AND created <= "{end_date.strftime("%Y-%m-%d")}" AND status IN ({",".join(allowed_statuses_sanitized)})'
+        return f'project = {project} AND created >= "{start_date.strftime("%Y-%m-%d")}" AND created <= "{end_date.strftime("%Y-%m-%d")}" AND status IN ({",".join(allowed_statuses_sanitized)})'
 
     def search_issues(self, query: str, max_results_per_page: int = 50):
         """Search for existing DCI issues within a specified date range and matching allowed statuses.
@@ -80,7 +81,7 @@ class JiraConnection:
             issue: The Jira issue object (must have changelog expanded).
 
         Returns:
-            tuple: (first_entered_testing, last_finished_testing, times_entered_testing, total_testing_time_hours, current_status, ticket_title, created_date)
+            tuple: (first_entered_testing, last_finished_testing, times_entered_testing, total_testing_time_hours, current_status, ticket_title, created_date, assignee)
                 - first_entered_testing (datetime | None): When issue first entered TESTING
                 - last_finished_testing (datetime | None): When issue last left TESTING
                 - times_entered_testing (int): Number of times issue entered TESTING
@@ -88,6 +89,7 @@ class JiraConnection:
                 - current_status (str): Current status of the issue
                 - ticket_title (str): Issue summary/ticket_title
                 - ticket_created_date (str): When the ticket was created
+                - assignee (str): Assignee display name or "Unassigned"
 
         """
         first_entered_testing = None
@@ -104,6 +106,7 @@ class JiraConnection:
         # Parse created date from Jira format
         ticket_created_str = issue.fields.created[:-2] + ":" + issue.fields.created[-2:]
         ticket_created_date = datetime.fromisoformat(ticket_created_str).strftime("%Y-%m-%d %H:%M:%S")
+        assignee = issue.fields.assignee.displayName if issue.fields.assignee else "Unassigned"
 
         for history in issue.changelog.histories:
             # Jira format: '2026-03-06T10:05:07.020+0000' -> need '+00:00'
@@ -143,4 +146,5 @@ class JiraConnection:
             current_status,
             ticket_title,
             ticket_created_date,
+            assignee,
         )
