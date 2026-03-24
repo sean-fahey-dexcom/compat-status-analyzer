@@ -21,6 +21,7 @@ def csv_writer(issues_metrics):
             "Assignee",
             "Created Date",
             "Total Test Time (Hours)",
+            "Work Week Test Time (Hours)",
             "Current Status",
             "First Entered TESTING",
             "Last Left TESTING",
@@ -35,6 +36,7 @@ def csv_writer(issues_metrics):
                 metrics["assignee"],
                 metrics["ticket_created_date"],
                 metrics["total_testing_time_hours"],
+                metrics["work_week_testing_time_hours"],
                 metrics["current_status"],
                 metrics["first_entered_testing"],
                 metrics["last_exited_testing"],
@@ -96,6 +98,7 @@ def compat_homepage():
                     last_exited_testing,
                     times_entered_testing,
                     total_testing_time_hours,
+                    work_week_testing_time_hours,
                     current_status,
                     ticket_title,
                     ticket_created_date,
@@ -106,6 +109,7 @@ def compat_homepage():
                 issues_metrics[issue.key]["last_exited_testing"] = last_exited_testing
                 issues_metrics[issue.key]["times_entered_testing"] = times_entered_testing
                 issues_metrics[issue.key]["total_testing_time_hours"] = total_testing_time_hours
+                issues_metrics[issue.key]["work_week_testing_time_hours"] = work_week_testing_time_hours
                 issues_metrics[issue.key]["current_status"] = current_status
                 issues_metrics[issue.key]["ticket_title"] = ticket_title
                 issues_metrics[issue.key]["ticket_created_date"] = ticket_created_date
@@ -167,6 +171,7 @@ def gary_homepage():
                     last_exited_testing,
                     times_entered_testing,
                     total_testing_time_hours,
+                    work_week_testing_time_hours,
                     current_status,
                     ticket_title,
                     ticket_created_date,
@@ -177,6 +182,7 @@ def gary_homepage():
                 issues_metrics[issue.key]["last_exited_testing"] = last_exited_testing
                 issues_metrics[issue.key]["times_entered_testing"] = times_entered_testing
                 issues_metrics[issue.key]["total_testing_time_hours"] = total_testing_time_hours
+                issues_metrics[issue.key]["work_week_testing_time_hours"] = work_week_testing_time_hours
                 issues_metrics[issue.key]["current_status"] = current_status
                 issues_metrics[issue.key]["ticket_title"] = ticket_title
                 issues_metrics[issue.key]["ticket_created_date"] = ticket_created_date

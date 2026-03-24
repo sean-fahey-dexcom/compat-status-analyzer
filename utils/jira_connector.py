@@ -1,6 +1,6 @@
 """Jira connection handler."""
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from jira import JIRA
 
@@ -36,6 +36,35 @@ class JiraConnection:
         """
         allowed_statuses_sanitized = [status.replace(" ", r"\ ") for status in allowed_statuses]
         return f'project = {project} AND created >= "{start_date.strftime("%Y-%m-%d")}" AND created <= "{end_date.strftime("%Y-%m-%d")}" AND status IN ({",".join(allowed_statuses_sanitized)})'
+
+    @staticmethod
+    def calculate_work_week_hours(start_dt: datetime, end_dt: datetime) -> float:
+        """Calculate the number of hours between two datetime objects, excluding weekends.
+
+        Args:
+            start_dt (datetime): The start datetime.
+            end_dt (datetime): The end datetime.
+
+        Returns:
+            float: The total number of hours excluding Saturdays and Sundays.
+        """
+        if start_dt >= end_dt:
+            return 0.0
+
+        total_seconds = 0
+        current_dt = start_dt
+
+        while current_dt < end_dt:
+            # Move to the next second
+            next_dt = current_dt + timedelta(seconds=1)
+
+            # Check if the current second is within a weekday
+            if current_dt.weekday() < 5:  # Monday to Friday
+                total_seconds += 1
+
+            current_dt = next_dt
+
+        return total_seconds / 3600
 
     def search_issues(self, query: str, max_results_per_page: int = 50):
         """Search for existing DCI issues within a specified date range and matching allowed statuses.
@@ -96,6 +125,7 @@ class JiraConnection:
         last_finished_testing = None
         times_entered_testing = 0
         total_testing_time_hours = 0.0
+        work_week_testing_time_hours = 0.0
         currently_in_testing = False
         entered_at = None
 
@@ -130,6 +160,7 @@ class JiraConnection:
                     elif from_status == "TESTING" and to_status != "TESTING":
                         if entered_at is not None:
                             total_testing_time_hours += (history_time - entered_at).total_seconds() / 3600
+                            work_week_testing_time_hours += self.calculate_work_week_hours(entered_at, history_time)
                         last_finished_testing = history_time
                         currently_in_testing = False
                         entered_at = None
@@ -137,12 +168,14 @@ class JiraConnection:
         # If still in TESTING, return -1 for total time
         if currently_in_testing or current_status.upper() == "TESTING":
             total_testing_time_hours = -1
+            work_week_testing_time_hours = -1
 
         return (
             first_entered_testing.strftime("%Y-%m-%d %H:%M:%S") if first_entered_testing else None,
             last_finished_testing.strftime("%Y-%m-%d %H:%M:%S") if last_finished_testing else None,
             times_entered_testing,
             total_testing_time_hours,
+            work_week_testing_time_hours,
             current_status,
             ticket_title,
             ticket_created_date,
