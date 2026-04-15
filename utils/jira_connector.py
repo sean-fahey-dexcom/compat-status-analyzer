@@ -159,7 +159,10 @@ class JiraConnection:
                     if to_status in statuses_to_track:
                         if not status_entry_times[to_status]:
                             status_entry_times[to_status] = history_time
-                            metrics["status_metrics"][to_status]["entry_count"] += 1
+                            if (
+                                from_status != to_status
+                            ):  # Only count entry if it's a status change, not a history update where status stays the same
+                                metrics["status_metrics"][to_status]["entry_count"] += 1
 
         # Check if the issue is currently in any of the tracked statuses
         current_status_upper = metrics["current_status"].upper()
