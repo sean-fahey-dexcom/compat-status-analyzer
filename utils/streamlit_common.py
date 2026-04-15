@@ -6,6 +6,22 @@ import streamlit as st
 
 from utils.utils import get_jira_api_key
 
+COMPAT_STATUSES_TO_TRACK = [
+    "TESTING",
+    "POST-TEST REVIEW",
+    "READY FOR CLOUD PLM",
+    "SUBMITTED IN CLOUD PLM",
+    "IMPLEMENT DELIVERABLE",
+    "QA CLOSE REVIEW",
+]
+
+GARY_STATUSES_TO_TRACK = [
+    "TESTING",
+    "POST-TEST REVIEW",
+    "SUBMITTED IN CLOUD PLM",
+    "IMPLEMENTED",
+]
+
 
 def get_key():
     """Fetch the Jira API key from the JIRA_API_KEY environment variable."""

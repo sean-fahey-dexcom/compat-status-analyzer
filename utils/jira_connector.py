@@ -103,81 +103,68 @@ class JiraConnection:
         if total_fetched == 0:
             print("No issues found.")
 
-    def get_testing_status_metrics(self, issue):
-        """Get metrics for time spent in TESTING status for an issue.
+    def get_status_metrics(self, issue, statuses_to_track):
+        """Get metrics for time spent in various statuses for an issue.
 
         Args:
             issue: The Jira issue object (must have changelog expanded).
+            statuses_to_track (list): A list of uppercase status names to track.
 
         Returns:
-            tuple: (first_entered_testing, last_finished_testing, times_entered_testing, total_testing_time_hours, current_status, ticket_title, created_date, assignee)
-                - first_entered_testing (datetime | None): When issue first entered TESTING
-                - last_finished_testing (datetime | None): When issue last left TESTING
-                - times_entered_testing (int): Number of times issue entered TESTING
-                - total_testing_time_hours (float): Total time in TESTING in hours (-1 if still in TESTING)
-                - current_status (str): Current status of the issue
-                - ticket_title (str): Issue summary/ticket_title
-                - ticket_created_date (str): When the ticket was created
-                - assignee (str): Assignee display name or "Unassigned"
-
+            dict: A dictionary containing ticket information and metrics for each tracked status.
+                - 'ticket_title': Issue summary/title
+                - 'ticket_created_date': When the ticket was created
+                - 'assignee': Assignee display name or "Unassigned"
+                - 'current_status': Current status of the issue
+                - 'status_metrics': A nested dictionary where keys are the tracked statuses and
+                                    values are dicts with:
+                                    - 'total_hours': Total time in the status (float, -1 if ongoing)
+                                    - 'work_week_hours': Work-week time in the status (float, -1 if ongoing)
+                                    - 'entry_count': Number of times the status was entered (int)
         """
-        first_entered_testing = None
-        last_finished_testing = None
-        times_entered_testing = 0
-        total_testing_time_hours = 0.0
-        work_week_testing_time_hours = 0.0
-        currently_in_testing = False
-        entered_at = None
+        metrics = {
+            "ticket_title": str(issue.fields.summary),
+            "ticket_created_date": datetime.fromisoformat(
+                issue.fields.created[:-2] + ":" + issue.fields.created[-2:]
+            ).strftime("%Y-%m-%d %H:%M:%S"),
+            "assignee": issue.fields.assignee.displayName if issue.fields.assignee else "Unassigned",
+            "current_status": str(issue.fields.status.name),
+            "status_metrics": {
+                status: {"total_hours": 0.0, "work_week_hours": 0.0, "entry_count": 0} for status in statuses_to_track
+            },
+        }
 
-        # Check if issue was created in TESTING status
-        # We need to check for this edge case by looking at the first status transition
-        current_status = str(issue.fields.status.name)
-        ticket_title = str(issue.fields.summary)
-        # Parse created date from Jira format
-        ticket_created_str = issue.fields.created[:-2] + ":" + issue.fields.created[-2:]
-        ticket_created_date = datetime.fromisoformat(ticket_created_str).strftime("%Y-%m-%d %H:%M:%S")
-        assignee = issue.fields.assignee.displayName if issue.fields.assignee else "Unassigned"
+        status_entry_times = {status: None for status in statuses_to_track}
 
         for history in issue.changelog.histories:
-            # Jira format: '2026-03-06T10:05:07.020+0000' -> need '+00:00'
-            created_str = history.created[:-2] + ":" + history.created[-2:]
-            history_time = datetime.fromisoformat(created_str)
+            history_time_str = history.created[:-2] + ":" + history.created[-2:]
+            history_time = datetime.fromisoformat(history_time_str)
 
             for item in history.items:
                 if item.field == "status":
                     from_status = str(item.fromString).upper() if item.fromString else ""
                     to_status = str(item.toString).upper() if item.toString else ""
 
-                    # Entered TESTING
-                    if to_status == "TESTING" and from_status != "TESTING":
-                        times_entered_testing += 1
-                        entered_at = history_time
-                        currently_in_testing = True
-                        if first_entered_testing is None:
-                            first_entered_testing = history_time
+                    # Exited a tracked status
+                    if from_status in statuses_to_track and status_entry_times[from_status]:
+                        entry_time = status_entry_times[from_status]
+                        time_spent = (history_time - entry_time).total_seconds() / 3600
+                        work_week_hours = self.calculate_work_week_hours(entry_time, history_time)
 
-                    # Left TESTING
-                    elif from_status == "TESTING" and to_status != "TESTING":
-                        if entered_at is not None:
-                            total_testing_time_hours += (history_time - entered_at).total_seconds() / 3600
-                            work_week_testing_time_hours += self.calculate_work_week_hours(entered_at, history_time)
-                        last_finished_testing = history_time
-                        currently_in_testing = False
-                        entered_at = None
+                        metrics["status_metrics"][from_status]["total_hours"] += time_spent
+                        metrics["status_metrics"][from_status]["work_week_hours"] += work_week_hours
+                        status_entry_times[from_status] = None
 
-        # If still in TESTING, return -1 for total time
-        if currently_in_testing or current_status.upper() == "TESTING":
-            total_testing_time_hours = -1
-            work_week_testing_time_hours = -1
+                    # Entered a tracked status
+                    if to_status in statuses_to_track:
+                        if not status_entry_times[to_status]:
+                            status_entry_times[to_status] = history_time
+                            metrics["status_metrics"][to_status]["entry_count"] += 1
 
-        return (
-            first_entered_testing.strftime("%Y-%m-%d %H:%M:%S") if first_entered_testing else None,
-            last_finished_testing.strftime("%Y-%m-%d %H:%M:%S") if last_finished_testing else None,
-            times_entered_testing,
-            total_testing_time_hours,
-            work_week_testing_time_hours,
-            current_status,
-            ticket_title,
-            ticket_created_date,
-            assignee,
-        )
+        # Check if the issue is currently in any of the tracked statuses
+        current_status_upper = metrics["current_status"].upper()
+        if current_status_upper in statuses_to_track:
+            metrics["status_metrics"][current_status_upper]["total_hours"] = -1
+            metrics["status_metrics"][current_status_upper]["work_week_hours"] = -1
+
+        return metrics
