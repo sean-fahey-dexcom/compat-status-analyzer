@@ -2,6 +2,7 @@
 
 from datetime import date, datetime, timedelta
 
+import numpy as np
 from jira import JIRA
 
 
@@ -39,32 +40,42 @@ class JiraConnection:
 
     @staticmethod
     def calculate_work_week_hours(start_dt: datetime, end_dt: datetime) -> float:
-        """Calculate the number of hours between two datetime objects, excluding weekends.
-
-        Args:
-            start_dt (datetime): The start datetime.
-            end_dt (datetime): The end datetime.
-
-        Returns:
-            float: The total number of hours excluding Saturdays and Sundays.
-        """
+        """Calculate the number of hours between two datetime objects, excluding weekends."""
         if start_dt >= end_dt:
             return 0.0
 
-        total_seconds = 0
-        current_dt = start_dt
+        start_date = start_dt.date()
+        end_date = end_dt.date()
 
-        while current_dt < end_dt:
-            # Move to the next second
-            next_dt = current_dt + timedelta(seconds=1)
+        # Case 1: Same day
+        if start_date == end_date:
+            if start_date.weekday() < 5:  # It's a weekday
+                return (end_dt - start_dt).total_seconds() / 3600
+            return 0.0
 
-            # Check if the current second is within a weekday
-            if current_dt.weekday() < 5:  # Monday to Friday
-                total_seconds += 1
+        # Case 2: Different days
+        # Calculate full business days between the start and end dates
+        # np.busday_count excludes the end date, so we add one day to end_date for inclusion
+        num_business_days = np.busday_count(start_date, end_date + timedelta(days=1))
 
-            current_dt = next_dt
+        # Start with total business days * 24 hours
+        total_hours = num_business_days * 24.0
 
-        return total_seconds / 3600
+        # Adjust for the first day
+        if start_date.weekday() < 5:
+            # It's a weekday, so we've counted it as a full 24h day.
+            # We need to subtract the hours that passed before start_dt
+            start_of_day = start_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+            total_hours -= (start_dt - start_of_day).total_seconds() / 3600
+
+        # Adjust for the last day
+        if end_date.weekday() < 5:
+            # It's a weekday, so we've counted it as a full 24h day.
+            # We need to subtract the hours from end_dt until the end of the day.
+            end_of_day = end_dt.replace(hour=23, minute=59, second=59, microsecond=999999)
+            total_hours -= (end_of_day - end_dt).total_seconds() / 3600
+
+        return total_hours
 
     def search_issues(self, query: str, max_results_per_page: int = 50):
         """Search for existing DCI issues within a specified date range and matching allowed statuses.

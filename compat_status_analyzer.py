@@ -1,5 +1,6 @@
 """Entrypoint for the streamlit app."""
 
+import concurrent.futures
 import csv
 import io
 from datetime import datetime
@@ -147,12 +148,23 @@ def process_issues(jira, query, statuses_to_track, project_name):
     progress_bar = st.progress(0, text=f"Extracting status history from {project_name} tickets...")
 
     issues_metrics = {}
-    for idx, issue in enumerate(all_issues):
-        metrics = jira.get_status_metrics(issue, statuses_to_track)
-        issues_metrics[issue.key] = metrics
-        progress_bar.progress(
-            (idx + 1) / len(all_issues), text=f"Extracting status history from {project_name} tickets..."
-        )
+    total_issues = len(all_issues)
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        future_to_issue = {
+            executor.submit(jira.get_status_metrics, issue, statuses_to_track): issue for issue in all_issues
+        }
+
+        for i, future in enumerate(concurrent.futures.as_completed(future_to_issue)):
+            issue = future_to_issue[future]
+            try:
+                metrics = future.result()
+                issues_metrics[issue.key] = metrics
+            except Exception as exc:
+                st.error(f"{issue.key} generated an exception: {exc}")
+
+            progress_bar.progress(
+                (i + 1) / total_issues, text=f"Extracting status history from {project_name} tickets..."
+            )
 
     progress_bar.empty()
     return issues_metrics
