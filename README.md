@@ -1,32 +1,34 @@
-# COMPAT Ticket Status Analyzer
+# COMPAT & GARY Ticket Status Analyzer
 
-A Streamlit dashboard for analyzing COMPAT Jira tickets and tracking time spent in the TESTING status.
+A Streamlit dashboard for analyzing COMPAT and GARY Jira tickets and tracking time spent in various statuses (excluding weekends).
 
 ## Features
 
+- Switch between COMPAT and GARY dashboards via navigation sidebar
 - Filter tickets by creation date range and current status
-- Track how long each ticket spent in TESTING
+- Track how long each ticket spent in multiple tracked statuses (excluding weekends)
 - Export results to CSV
 
 ## How to Use
 
-1. Select your desired date range for when tickets were created.
-2. Choose which statuses to include in the analysis.
-3. Click `Run Analysis` to see the results.
-4. Click the `Download` button once the query is complete.
+1. Select the COMPAT or GARY dashboard from the sidebar navigation.
+2. Select your desired date range for when tickets were created.
+3. Choose which statuses to filter by in the current status filter.
+4. Click `Submit` to execute the query and view metrics.
+5. Click the `Download CSV` button once the query is complete.
 
 ## CSV Output
 
 The exported CSV includes:
 
 - Ticket number and title
+- Assignee
 - Created date
-- Total time in TESTING (hours)
 - Current status
-- First entered / last left TESTING timestamps
-- Number of times entered TESTING
+- Work-week hours spent in each tracked status
+- Number of times entered each tracked status
 
-A value of `-1` for test time indicates the ticket is currently in TESTING.
+A value of `-1` for work-week hours indicates the ticket is currently in that status.
 
 ## Setup
 
